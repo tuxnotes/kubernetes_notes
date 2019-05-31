@@ -115,3 +115,29 @@ kube-proxy enables the Kubernetes **service abstraction by maintaining network r
 
 ## 2.3 Addons附件
 
+Addons are pods and services that implement cluster features. The pods may be managed by Deployments, ReplicationControllers, and so on. Namespaced addon objects are created in **kube-system** namespace. 附件就是Pod和service，用来实现集群的一些特性。Pod可以通过Deployment , ReplicationController管理。命名空间的附件对象是在**kube-system**命名空间中创建的。
+
+Selected addons are described below, for an extended list of available addons please see [Addons](https://kubernetes.io/docs/concepts/cluster-administration/addons/)
+
+### 2.31 DNS
+
+虽然有些附件对于kubernetes集群来说不是必须的，但是集群应该有[DNS](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/)
+
+集群的DNS是个DNS服务器，为kubernetes的services提供DNS记录服务。
+
+kubernetes启动容器是会自动包含此DNS服务器。
+
+### 2.3.2 Web UI(Dashboard)
+
+[Dashboard](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/)是kubernetes集群通用目的的基于web的UI。通过它，用户可以对集群中运行的应用进行管理和排错。
+
+### 2.3.2 Container Resource Monitoring
+
+[容器资源监控](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-usage-monitoring/)记录了基于时间序列的容器的通用指标，将数据存储于一个中心数据库并提供UI用来浏览数据。
+
+### 2.3.3 Cluster-level Logging
+
+[Cluster-level logging](https://kubernetes.io/docs/concepts/cluster-administration/logging/)机制负责将容器日志保存到中心日志存储中，并提供搜索和浏览接口。
+
+# 3 The Kubernetes API
+
