@@ -41,3 +41,15 @@ kubernetes为每个pod分配一个IP地址。在搭建集群的过程中你需�
 
 采用哪种方案，取决于你的环境和要求。目前已有一些其他方法用于实现上面的方案：
 
+1. Use a network plugin which is called by kubernetes
+   - Kubernetes support the CNI network plugin interface Kubernetes支持CNI网络插件接口
+   - 这里有一些为kubernetes提供插件服务的解决方案(按字母)：Calico, Flannel, Open vSwitch(OVS), Romana, Weave, 自己编写
+2. Compile support directly into Kubernetes
+   - This can be done by implementing the "Routes" interface of a Cloud Provider module
+   - The GCE and AWS guides use this approach
+3. Configure the network external to Kubernetes设置kubernetes的外部网络
+   - This can be done by manually running commands, or through a set of externally maintained scripts
+   - 
+
+
+
