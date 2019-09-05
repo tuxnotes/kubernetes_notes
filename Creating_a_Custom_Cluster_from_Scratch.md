@@ -49,7 +49,78 @@ kubernetes为每个pod分配一个IP地址。在搭建集群的过程中你需�
    - The GCE and AWS guides use this approach
 3. Configure the network external to Kubernetes设置kubernetes的外部网络
    - This can be done by manually running commands, or through a set of externally maintained scripts
-   - 
+   - You have to implement this yourself, but it can give you an extra degree of flexibility
+
+你需要给Pod选择一个IP地址段
+
+有多种方法：
+
+- GCE：each project 有自己的地址段`10.0.0.0/8`. 从此地址段截取`/16`地址段给kubernetes集群使用。每个节点会得到一个子地址段
+- AWS: 整个organization使用一个VPC, 每个集群从VPC中截取一段IP地址，或者是不同的集群使用不同的VPC
+
+
+
+给每个节点的Pod分配一个CIDR子网，或者是一个较大范围的CIRD，其小范围的CIDR自动分配给每个节点
+
+- 你需要计算总的IP数：每个节点的最大Pod数量 * 节点的最大数量。通常的选择是每个节点分配一个`/24`的网络，支持254个Pod。如果IP地址稀少，可以采用`/26` (每个机器62个Pod)或`/27`(每个节点30个Pod)
+- 例如，使用`10.10.0.0/16`作为集群的地址范围，每个节点分别使用的IP地址为从`10.10.0.0/24`到`10.10.255.0/24`,多达256个。
+- 需要使用overlay使这些地址能路由或连通
+
+kubernetes还需要给每个service分配一个IP地址。但service的IP地址不要求必须可路由到。`kube-proxy`负责数据包离开节点前将service ip地址转换为pod的IP地址。你的确需要为service分配一个地址段，称为`SERVICE_CLUSTER_IP_RNAGE`. 例如，你可以设置`SERVICE_CLUSTER_IP_RANGE="10.0.0.0/16"` , 运行同时激活65534个不同的service。需要注意的是：你可以扩展这个地址范围，但不能移除正在被service和pod使用的地址。
+
+**同时需要为master节点准备一个静态IP**
+
+- 这个IP称为`**MASTER_IP**`
+- 防火墙要允许访问apiserver的80或443端口
+
+#### 1.4.2 Network Policy
+
+kubernetes 启用了Pod间更加精细的网络策略定义，通过使用NetworkPolicy resource实现。然而并不是所有的网络providers支持kubernetes NetworkPolicy API.
+
+### 1.5 Cluster Naming
+
+你需要为集群选择一个简短的名称，且随着将来集群名称的增多，要保证此名称的唯一性。集群名称在下面几种情况下会用到：
+
+- `kubectl`用此名称来区分你访问的不同集群。将来你也可能需要第二集群用于测试新的kubernetes发布版本。
+- kubernetes集群能创建cloud provider resources(例如，AWS ELBs). and different cluster need to distinguish wich resources each created. Call this `**CLUSTER_NAME**`。
+
+### 1.6 Binary software
+
+你需要下面二进制程序：
+
+- etcd
+- 容器运行时：docker or rkt
+- kubernetes: kubelet, kubeproxy, kube-apiserver, kube-controller-manager, kube-scheduler
+
+#### 1.6.1 Downloading and Extracting Kubernetes Binaries
+
+推荐使用kubernetes发布的二进制程序。github上下载的tar包不在包含kubernetes的二进制文件需要执行脚本`./kubernetes/cluster/get-kube-binaries.sh`脚本下载，`./kubernetes/server/bin`包含需要的二进制文件
+
+#### 1.6.2 Selecting Images
+
+docker, kubelet, kube-proxy以非容器的方式运行，其他的也可以用二进制启动系统守护进程。对于etcd,kube-apiserver,kube-controller-manager,kube-scheduler推荐使用容器的方式运行。
+
+### 1.7 Security Models
+
+There are two main options for security:
+
+- 通过HTTP方式访问apiserver: 需要防火墙确保安全；部署叫容易
+- 通过HTTPS访问apiserver: 使用证书为用户加密，推荐这种方式，证书的配置需要技巧和智慧
+
+下面是采用HTTPS的方式，你需要准备certs and credentials
+
+#### 1.7.1 Preparing Certs准备证书
+
+需要准备下面几个证书：
+
+- The master needs a cert to act as an HTTPS server.master节点作为HTTPS服务器需要证书
+- The kubelets optionally need certs to identify themselves as clieants of the master, and when serving its own API over HTTPS
+
+Unless you plan to have a real CA generate your certs, you will need to generate a root cert and use that to sign the master, kubelet, and the kubectl certs.How to do this is described in the [authentication documentation][]
+
+
+
+
 
 
 
