@@ -116,7 +116,50 @@ There are two main options for security:
 - The master needs a cert to act as an HTTPS server.master节点作为HTTPS服务器需要证书
 - The kubelets optionally need certs to identify themselves as clieants of the master, and when serving its own API over HTTPS
 
-Unless you plan to have a real CA generate your certs, you will need to generate a root cert and use that to sign the master, kubelet, and the kubectl certs.How to do this is described in the [authentication documentation][]
+Unless you plan to have a real CA generate your certs, you will need to generate a root cert and use that to sign the master, kubelet, and the kubectl certs.How to do this is described in the [authentication documentation][https://v1-12.docs.kubernetes.io/docs/concepts/cluster-administration/certificates/]
+
+除非你计划采用真正CA中心给你生成证书，否则你需要自己生成根证书，并用根证书签名master, kubelet, kubectl证书
+
+下面这些文件将会用到，后文中将使用这些变量：
+
+- **CA_CERT**
+  - put in one node where apiserver runs, for example in **`/srv/kubernetes/ca.crt`**.
+- **MASTER_CERT**
+  - singed by **CA_CERT**
+  - put in on node where apiserver runs, for example in **`/srv/kubernetes/server.crt`**.
+- **MASTER_KEY**
+  - put in on node where apiserver runs, for example in **`/srv/kubernetes/server.key`**.
+- **KUBELET_CERT**
+  - optional
+- **KUBELET_KEY**
+  - optional
+
+#### 1.7.2 Preparing Credentials
+
+The admin user(and any users)need:
+
+- **a token or a password to identify them**
+
+- **tokens are just long alphanumeric strings, 32 chars for example**
+
+  ```bash
+  TOKEN=$(dd if=/dev/urandom bs=128 count=1 2>/dev/null | base64 | tr -d "=+/[:space:]" | dd bs=32 count=1 2>/dev/null)
+  ```
+
+你的token和password需要存放在文件中，用于apiserver读取。本指南采用如下文件名:
+
+**`/var/lib/kuber-apiserver/known_tokens.csv`**
+
+关于此csv文件内容格式的描述见[authentication documentation][https://v1-12.docs.kubernetes.io/docs/reference/access-authn-authz/authentication/#static-token-file]
+
+格式如下：
+
+```bash
+$ cat token.csv
+alkskjhfdku3jkfhm,user1,1123,"test,dev"
+kjasdfgjkewyucxmj12,user2,566,dev
+lskdfjldskfnkjhf,user3,7654,
+```
 
 
 
