@@ -283,3 +283,153 @@ $ kubectl get svc/webserver
 
 
 
+
+
+**Kubernetes的三种外部访问方式：NodePort LoadBalaner Ingress**
+
+NodePort LoadBalancer Ingress都是**将集群外部流量引入到集群内部**的方式 , 只是实现方式不同。
+
+1.  **ClusterIP**
+
+   ​	ClusterIP 类型是Kubernetes默认service tyep. 它是一个**集群内**的服务，集群内的其它应用都可以访问该service。集群外部无法访问它。
+
+   如果从Internet没法访问ClusterIP类型的service，那么我们为什么还要讨论它呢？那是因为我们可以通过Kubernetes的proxy模式来访问该服务，示意图如下：
+
+   ![](./clusterip_proxy.png)
+
+ClusterIP类型的service的yaml文件类似如下：
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:  
+  name: my-internal-service
+spec:
+  selector:    
+    app: my-app
+  type: ClusterIP
+  ports:  
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+```
+
+启动kubernetes proxy模式：
+
+```bash
+$ kubectl proxy --port=8080
+```
+
+这样就可以通过kubernetes API， 使用如下模式来访问这个service：
+
+```
+http://localhost:8080/api/v1/proxy/namespaces/<NAMESPACE>/services/<SERVICE-NAME>:<PORT-NAME>/
+```
+
+要访问上面定义的service, 使用如下地址：
+
+```
+http://localhost:8080/api/v1/proxy/namespaces/default/services/my-internal-service:http/
+```
+
+何时使用这种方式(ClusterIP)?
+
+下面几个场景可以使用kubernetes proxy访问你 的service:
+
+- 由于某些原因，你需要调试你的service , 或者需要直接通过笔记本电脑去访问它们。
+- 允许内部通信，展示内部仪表盘等
+
+这种方式要求我们运行kubectl作为一个未认证的用户，因此我们不能用这种方式把service暴露到internet或在生产环境使用。
+
+2. **NodePort**
+
+   ​	NodePort类型服务是引导外部流量到你的service的最原始的方法。正如其名，在所有的node上打开特定的端口，任何发往这个端口的流量都会被转发到service上。示意图如下：
+
+   ![](./nodeport.png)
+
+NodePort type service的yaml文件大致如下：
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:  
+  name: my-nodeport-service
+spec:
+  selector:    
+    app: my-app
+  type: NodePort
+  ports:  
+  - name: http
+    port: 80
+    targetPort: 80
+    nodePort: 30036
+    protocol: TCP
+```
+
+NodePort类型service主要有两点区别于ClusterIP类型的服务。第一，它的类型是"NodePort"。有一个额外的端口，成为nodePort，它指定节点上开放的端口值。如果你不指定这个端口，系统选择一个随机端口。大多数时候我们应该让kubernetes来选择端口，用户自己来选择可用端口代价太大。
+
+合适使用这种方式？
+
+这种方式有许多缺点：
+
+- 每个端口只能是一种服务
+- 端口范围只能是30000-32767
+- 如果节点/VM的IP都中发生变化，你需要能处理这种情况
+
+基于以上原因，不建议在生产环境上用这种方式暴露service。如果你运行的服务不要求一直可用，或者对成本比较敏感，可以使用这种方法。这样的应用的最佳例子是demo应用，或某些临时应用。
+
+3. **LoadBalancer**
+
+   ​	LoadBalancer 服务是暴露服务到Internet的标准方式。在GKE上，这种方式会启动一个Network Load Balancer，它将给你一个独立的IP地址，转发所有流浪到你的服务。示意图如下：
+
+   ![](./loadbalancer.png)
+
+何时使用这种方式？
+
+如果你向直接暴露服务，这就是默认方式。所有通往你指定端口的流量都会被转发到service上。没有过滤条件，没有路由等。这以为这你几乎可以发送任何形式的流量到该服务，如http, tcp, udp, Websocket, gRPC或其它任意种类。
+
+**这个方式的最大缺点是每一个用LoadBalancer暴露的服务都会有它自己的IP地址，每个用到的LoadBalancer都需要付费，这僵尸非常昂贵的**.
+
+4. **Ingress**
+
+   ​	有别于以上所有的例子，Ingress事实上不是一种服务类型。相反，它处于多个服务的前端，扮演着"智能路由"或集群入口(entrypoint)的角色. 示意图如下：
+
+   ![](./ingress.png)
+
+   利用ingress可以做许多不同的事情，各种不同类型的Ingress控制器也有不同的能力。
+
+   GKE上默认ingress控制器是启动一个HTTP(s) Load Balancer。它允许你基于路径或者字域名来路由流量到后端服务。例如，你可以将任何发往域名foo.yourdomain.com的流量转到foo服务，将路径yourdomain.com/bar/path的流量转到bar服务。
+
+   GKE 上用 [L7 HTTP Load Balancer](https://cloud.google.com/compute/docs/load-balancing/http/) 生成的 Ingress 对象的 YAML 文件类似如下：
+
+   ```yaml
+   apiVersion: extensions/v1beta1
+   kind: Ingress
+   metadata:
+     name: my-ingress
+   spec:
+     backend:
+       serviceName: other
+       servicePort: 8080
+     rules:
+     - host: foo.mydomain.com
+       http:
+         paths:
+         - backend:
+             serviceName: foo
+             servicePort: 8080
+     - host: mydomain.com
+       http:
+         paths:
+         - path: /bar/*
+           backend:
+             serviceName: bar
+             servicePort: 8080
+   ```
+
+   合适使用这种方式？
+
+   Ingress可能是暴露服务的最强大的方式，但同事也是最复杂的。Ingress控制器有各种类型，包括Google Cloud Load Balancer, Nginx, Contour, Istio等等。它还有各种插件，如[cert-manager][https://github.com/jetstack/cert-manager], 它可以为你的服务自动提供SSL证书。
+
+   如果你想要使用同一个 IP 暴露多个服务，这些服务都是使用相同的七层协议（典型如 HTTP），那么Ingress 就是最有用的。如果你使用本地的 GCP 集成，你只需要为一个负载均衡器付费，且由于 Ingress是“智能”的，你还可以获取各种开箱即用的特性（比如 SSL，认证，路由，等等）。
