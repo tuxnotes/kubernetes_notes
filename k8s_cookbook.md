@@ -233,5 +233,53 @@ spec:
   - port: 80
 ```
 
-需要注意的是yaml文件中的selector ，which is used to select all the pods that make up this microservice abstraction.
+需要注意的是yaml文件中的selector ，which is used to select all the pods that make up this microservice abstraction. **Kuberbetes uses the Service object to dynamically configure the iptables on all nodes to be abole to send the network traffic to the contaners that make up the microservice**. selector是一个标签查询，返回一组访问点。
+
+如果服务运行出现问题，检查selector使用的标签，并确认kubectl get endpoints可以返回一组访问点。如果不能，则可能是selector没有找到匹配的pod.
+
+pod的监控程序(如deployment, replicaset等)可以直接操作service。监控程序与service可以使用标签找到所需的Pod，但它们的职能不同：**监控程序负责管理Pod的健康并负责重启Pod，而 service则负责提供可靠的访问渠道**。
+
+## 5.2 Verifing the DNS Entry of a Service验证service的DNS注册项
+
+在创建service后，如何验证service是否成功注册了DNS？
+
+Solution：
+
+By default kubernetes uses **ClusterIP** as th service type, and that exposes the service on a cluster-internal IP.默认情况下，kubernetes service type是ClusterIP，并通过集群的内存IP公布服务。如果集群的DNS插件工作正常，则可以通过全称域名(Fully Qualified Domain Name, FQDN), 以$SERVICENAME.$NAMESPACE.svc.cluster.local的形式访问该服务。
+
+在集群的容器内通过交互式shell，来验证服务是否正常工作。
+
+```bash
+$ kubectl run busybox --image busybox -it -- /bin/sh
+/ # nslookup nginx
+```
+
+以上命令返回的service IP地址是它的集群IP地址。
+
+## 5.3 改变service type
+
+如果已有一个service，其service type为ClusterIP类型，如果改变其类型，使之以NodePort类型发布应用程序？或通过云提供商的负载均衡器，使用LoadBalancer service type.
+
+使用kubectl edit改变其服务类型，比如现有service，清单文件simple-nginx-svc.yaml如下:
+
+```yaml
+kind: Service
+apiVersion: v1
+metadata:
+  name: webserver
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: nginx
+```
+
+创建webserver并查询
+
+```bash
+$ kubectl create -f simple-nginx-svc.yaml
+$ kubectl get svc/webserver
+```
+
+
 
