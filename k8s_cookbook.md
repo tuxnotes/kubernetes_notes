@@ -281,5 +281,44 @@ $ kubectl create -f simple-nginx-svc.yaml
 $ kubectl get svc/webserver
 ```
 
+更改服务类型为NodePort
 
+```bash
+$ kubectl edit svc/webserver
+```
+
+保存编辑后通过下面的命令确认变更后的服务：
+
+```bash
+$ kubectl get svc/webserver
+$ kubectl get svc/webserver -o yaml
+```
+
+注意，服务类型可根据实际情况随意修改。但某型类型可能有隐藏的规则，比如LoadBalancer，可能会触发公有云基础设施组件的配置，如果在不知情或没有监控的情况下使用，可能会造成昂贵的开销。
+
+## 5.4 在minikube上配置ingress controlller
+
+ingress 可以帮助我们从kubernetes集群的外部访问kubernetes上运行的应用程序，而无需创建NodePort或LoadBalancer类型的服务，如何配置？
+
+部署Ingress控制器，才能让Ingress对象生效并提供从集群外部访问Pod的路由。在minikube上激活ingress插件的命令如下:
+
+```bash
+$ minikube addons enable ingress
+$ minikube addons list | grep ingress
+- ingress: enabled
+```
+
+大约1分钟后，kube-system命名空间将出现两个新的pod:
+
+```bash
+$ kubectl get pods -n kube-system
+NAME                                        READY   STATUS    RESTARTS   AGE
+...
+default-http-backend-66664b9769-gxhjj       1/1     Running   0          141m
+...
+nginx-ingress-controller-7b465d9cf8-4pmtm   1/1     Running   0          141m
+...
+```
+
+现在可以创建Ingress对象了。
 
