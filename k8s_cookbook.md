@@ -322,7 +322,9 @@ nginx-ingress-controller-7b465d9cf8-4pmtm   1/1     Running   0          141m
 
 现在可以创建Ingress对象了。
 
-
+参阅文档：
+- [Ingress的文档][https://kubernetes.io/docs/concepts/services-networking/ingress/]
+- [基于nginx的ingress控制器源代码][https://github.com/kubernetes/ingress-nginx/blob/master/README.md]
 
 **Kubernetes的三种外部访问方式：NodePort LoadBalaner Ingress**
 
@@ -472,3 +474,37 @@ NodePort类型service主要有两点区别于ClusterIP类型的服务。第一�
    Ingress可能是暴露服务的最强大的方式，但同事也是最复杂的。Ingress控制器有各种类型，包括Google Cloud Load Balancer, Nginx, Contour, Istio等等。它还有各种插件，如[cert-manager][https://github.com/jetstack/cert-manager], 它可以为你的服务自动提供SSL证书。
 
    如果你想要使用同一个 IP 暴露多个服务，这些服务都是使用相同的七层协议（典型如 HTTP），那么Ingress 就是最有用的。如果你使用本地的 GCP 集成，你只需要为一个负载均衡器付费，且由于 Ingress是“智能”的，你还可以获取各种开箱即用的特性（比如 SSL，认证，路由，等等）。
+
+## 5.5 从集群外部访问服务
+
+如何从集群外部访问Kubernetes的服务？
+可以使用ingress控制器，可以通过创建ingress对象配置ingress控制器。Ingress规则(配置nginx服务路径)的清单文件如下所示：
+
+```bash
+$ cat nginx-ingress.yaml
+kind:                                     Ingress
+apiVersion:                               extensions/v1beta1
+metadata:
+  name:                                   nginx-public
+  annotations:
+    ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host:
+    http:
+      paths:
+      - path:                             /web
+        backend:
+          serviceName:                    nginx
+          servicePort:                    80
+
+$ kubectl create -f nginx-ingress.yaml
+```
+然后就可以在dashboard中看到ingress对象了。
+从kubernetes的仪表盘上，可以看到通过IP地址192.168.99.100访问nginx，并且清单文件定义了它的公开访问路径为/web。掌握了这些信息后就可以从外部访问nginx了：
+
+```bash
+$ curl -k https://192.168.99.100/web
+```
+
+
