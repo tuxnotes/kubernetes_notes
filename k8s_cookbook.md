@@ -507,4 +507,62 @@ $ kubectl create -f nginx-ingress.yaml
 $ curl -k https://192.168.99.100/web
 ```
 
+In general, ingress works as depicted in [Figure 5-4](https://calibre-internal.invalid/OEBPS/ch05.html#ingress-concept): the ingress controller listens to the`/ingresses` endpoint of the API server, learning about new rules. It then configures the routes so that external traffic lands at a specific (cluster-internal) service—`service1` on port 9876 in our example
+
+![](./k8s_ingress.png)
+
+# 6 Kubernetes API与关键元数据
+
+本章介绍kubernetes对象以及API的基本交互。kubernetes中的每个对象，不论是命名空间中的对象(如deployment),还是集群范围内的对象(如node)都有各自的字段，如metadata, spec, status. spec描述了对象期望的状态，而status则获取对象的实际状态。
+
+## 6.1 Discovering API Endpoint of the Kubernetes API Server
+
+**Problem**
+
+如何找到kubernetes API server上的各API endpoint？
+
+**Solution**
+
+如果可以通过无需认证的私有端口访问API server，那么可直接向API server发起http请求，并探索endpoint. minikube可以在虚拟机内使用ssh(minikube ssh)，并通过端口访问API服务器，如下所示：
+
+```bash
+$ curl localhost:8080/api/v1
+```
+
+如果无法直接访问机器上运行的kubernetes API server，you can use *kubectl* to proxy the API locally. This will allow you to reach the API server locally, **but using an authenticated session**:
+
+```bash
+$ kubectl proxy --port=8001 --api-prefix=/
+```
+
+在另外一个窗口中运行如下命令：
+
+```bash
+$ curl localhost:8001/foobar
+```
+
+使用/foobar的API路径可以查看所有该API上的endpoint. 注意`--port`和`--api-prefix`为可选参数
+
+在查看API的时候，常常会看到不同的endpoint。每个endpoint都对应一个API group。同一个group内，API object通过版本控制(如：v1beta1, v1beta2)来显示对象的成熟度。如，Pod, service, configmap, secrets都属于/api/v1 API group。而deployment则属于/apis/extensions/v1beta1 API group。
+
+> 不同的kubernetes版本，对象所属API group会有可能不同
+
+The group an object is part of is what is referred to as the `apiVersion` in the object specification。
+
+## 6.2 Understanding the Structure of a Kubernetes Manifest
+
+All API resources are either objects or lists. All resources have a `kind` and an`apiVersion`. 所有API资源都是对象会列表。所有的资源都有kind和apiVersion字段。此外每个对象的kind都有metadata, 而这个metadata则包含对象的名称，所属命名空间，一些可能的label和annotation.
+
+其次，manifest中大多数对象都包含spec字段，且在创建后还将返回status:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+spec:
+  ...
+status:
+  ...
+```
 
